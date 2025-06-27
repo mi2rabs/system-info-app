@@ -101,27 +101,53 @@ tk.Button(local_tab, text="Get System Info", command=display_local_info).pack(pa
 local_result_box = tk.Text(local_tab, height=20, width=70)
 local_result_box.pack(pady=5)
 
-# Scan Branch Tab
-network_tab = ttk.Frame(tab_control)
-tab_control.add(network_tab, text='Scan Branch')
+import subprocess
 
-tk.Label(network_tab, text="Scan IP Range", font=("Arial", 16)).pack(pady=10)
+def scan_branch():
+    start_ip = start_ip_entry.get()
+    end_ip = end_ip_entry.get()
 
-entry_frame = tk.Frame(network_tab)
-entry_frame.pack(pady=5)
+    if not start_ip or not end_ip:
+        messagebox.showwarning("Input Error", "Please enter both start and end IP addresses.")
+        return
 
-tk.Label(entry_frame, text="Start IP:").grid(row=0, column=0, padx=5, pady=5)
-start_ip_entry = tk.Entry(entry_frame)
-start_ip_entry.grid(row=0, column=1, padx=5, pady=5)
+    try:
+        base_ip = ".".join(start_ip.split('.')[:3]) + '.'
+        start = int(start_ip.split('.')[-1])
+        end = int(end_ip.split('.')[-1])
 
-tk.Label(entry_frame, text="End IP:").grid(row=0, column=2, padx=5, pady=5)
-end_ip_entry = tk.Entry(entry_frame)
-end_ip_entry.grid(row=0, column=3, padx=5, pady=5)
+        username = simpledialog.askstring("Username", "Enter admin username (DOMAIN\\Username):")
+        password = simpledialog.askstring("Password", "Enter password:", show="*")
 
-tk.Button(network_tab, text="Scan", command=scan_branch).pack(pady=10)
+        network_result_box.delete(1.0, tk.END)
 
-network_result_box = tk.Text(network_tab, height=20, width=70)
-network_result_box.pack(pady=5)
+        for i in range(start, end + 1):
+            ip = base_ip + str(i)
 
-tab_control.pack(expand=1, fill='both')
-app.mainloop()
+            ps_script = f"""
+            $secure = ConvertTo-SecureString '{password}' -AsPlainText -Force
+            $cred = New-Object System.Management.Automation.PSCredential('{username}', $secure)
+            Invoke-Command -ComputerName {ip} -Credential $cred -ScriptBlock {{
+                $cs = Get-WmiObject Win32_ComputerSystem
+                $os = Get-WmiObject Win32_OperatingSystem
+                $bios = Get-WmiObject Win32_BIOS
+
+                $info = [PSCustomObject]@{{
+                    "System Name" = $cs.Name
+                    "OS" = $os.Caption
+                    "RAM (GB)" = [math]::Round($cs.TotalPhysicalMemory / 1GB, 2)
+                    "Serial Number" = $bios.SerialNumber
+                }}
+                $info | ConvertTo-Json -Compress
+            }}
+            """
+
+            try:
+                result = subprocess.check_output(["powershell", "-Command", ps_script], stderr=subprocess.STDOUT, text=True)
+                network_result_box.insert(tk.END, f"--- {ip} ---\n{result}\n\n")
+            except subprocess.CalledProcessError as e:
+                network_result_box.insert(tk.END, f"--- {ip} ---\nError: {e.output.strip()}\n\n")
+
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
