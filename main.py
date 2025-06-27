@@ -40,67 +40,6 @@ def display_local_info():
         local_result_box.insert(tk.END, f"{key}: {value}\n")
 
 
-def scan_branch():
-    start_ip = start_ip_entry.get()
-    end_ip = end_ip_entry.get()
-
-    if not start_ip or not end_ip:
-        messagebox.showwarning("Input Error", "Please enter both start and end IP addresses.")
-        return
-
-    try:
-        # Extract last octet range
-        base_ip = ".".join(start_ip.split('.')[:3]) + '.'
-        start = int(start_ip.split('.')[-1])
-        end = int(end_ip.split('.')[-1])
-
-        username = simpledialog.askstring("Username", "Enter admin username (e.g. DOMAIN\\Admin):")
-        password = simpledialog.askstring("Password", "Enter password:", show="*")
-
-        network_result_box.delete(1.0, tk.END)
-
-        for i in range(start, end + 1):
-            ip = base_ip + str(i)
-            try:
-                c = wmi.WMI(computer=ip, user=username, password=password)
-                for sys in c.Win32_OperatingSystem():
-                    system_name = sys.CSName
-                    os_info = sys.Caption
-                    ram_size = round(float(sys.TotalVisibleMemorySize) / (1024 ** 2), 2)
-                for bios in c.Win32_BIOS():
-                    serial = bios.SerialNumber
-
-                network_result_box.insert(tk.END, f"--- {ip} ---\n")
-                network_result_box.insert(tk.END, f"System Name: {system_name}\n")
-                network_result_box.insert(tk.END, f"OS: {os_info}\n")
-                network_result_box.insert(tk.END, f"RAM (GB): {ram_size}\n")
-                network_result_box.insert(tk.END, f"Serial: {serial}\n\n")
-
-            except Exception as e:
-                network_result_box.insert(tk.END, f"--- {ip} ---\n")
-                network_result_box.insert(tk.END, f"Error: {str(e)}\n\n")
-
-    except Exception as e:
-        messagebox.showerror("Error", str(e))
-
-
-# GUI Setup
-app = tk.Tk()
-app.title("System Info App")
-app.geometry("600x500")
-
-tab_control = ttk.Notebook(app)
-
-# Local Info Tab
-local_tab = ttk.Frame(tab_control)
-tab_control.add(local_tab, text='Local Info')
-
-tk.Label(local_tab, text="System Info", font=("Arial", 16)).pack(pady=10)
-tk.Button(local_tab, text="Get System Info", command=display_local_info).pack(pady=5)
-
-local_result_box = tk.Text(local_tab, height=20, width=70)
-local_result_box.pack(pady=5)
-
 import subprocess
 
 def scan_branch():
